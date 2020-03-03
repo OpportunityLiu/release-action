@@ -1,6 +1,7 @@
 import * as core from '@actions/core';
 import { Artifact } from "./Artifact";
 import { Releases } from "./Releases";
+import { ErrorMessage } from './ErrorMessage';
 
 export interface ArtifactUploader {
     uploadArtifacts(artifacts: Artifact[], uploadUrl: string): Promise<void>
@@ -21,9 +22,11 @@ export class GithubArtifactUploader implements ArtifactUploader {
                     artifact.contentType,
                     artifact.readFile(),
                     artifact.name)
-            } catch(error) {
+            } catch (error) {
                 const message = `Failed to upload artifact ${artifact.name}. Does it already exist?`
                 core.warning(message)
+                const errorMessage = new ErrorMessage(error)
+                core.debug(errorMessage.toString())
             }
         });
     }
