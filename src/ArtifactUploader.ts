@@ -14,20 +14,27 @@ export class GithubArtifactUploader implements ArtifactUploader {
         this.releases = releases
     }
 
-    async uploadArtifacts(artifacts: Artifact[], uploadUrl: string) {
-        artifacts.forEach(async artifact => {
-            try {
-                await this.releases.uploadArtifact(uploadUrl,
-                    artifact.contentLength,
-                    artifact.contentType,
-                    artifact.readFile(),
-                    artifact.name)
-            } catch (error) {
-                const message = `Failed to upload artifact ${artifact.name}. Does it already exist?`
-                core.warning(message)
-                const errorMessage = new ErrorMessage(error)
-                core.debug(errorMessage.toString())
+    async uploadArtifact(artifact: Artifact, uploadUrl: string, retry = 3) {
+        try {
+            await this.releases.uploadArtifact(uploadUrl,
+                artifact.contentLength,
+                artifact.contentType,
+                artifact.readFile(),
+                artifact.name)
+        } catch (error) {
+            core.debug(new ErrorMessage(error).toString())
+            if (error.status >= 500 && retry > 0) {
+                core.debug(`Failed to upload artifact ${artifact.name}. Retrying...`)
+                await this.uploadArtifact(artifact, uploadUrl, retry - 1)
+            } else {
+                core.warning(`Failed to upload artifact ${artifact.name}. Does it already exist?`)
             }
-        });
+        }
+    }
+
+    async uploadArtifacts(artifacts: Artifact[], uploadUrl: string) {
+        for (const artifact of artifacts) {
+            await this.uploadArtifact(artifact, uploadUrl)
+        }
     }
 }
